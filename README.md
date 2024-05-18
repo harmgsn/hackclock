@@ -1,6 +1,7 @@
 This is *NOT* compatible with Pillow 10.x  - You'll have to remove it and install Pillow 9.5.0
 
 pip uninstall pillow
+
 pip install pillow==9.5.0
 
 I am not a python developer, I am not a developer.  I'm a sysadmin - I hack to make it work for me.
