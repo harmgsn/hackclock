@@ -4,6 +4,8 @@ pip uninstall pillow
 
 pip install pillow==9.5.0
 
+You will also need RGBMatrix installed (instructions for doing this can be found via Google) 
+
 I am not a python developer, I am not a developer.  I'm a sysadmin - I hack to make it work for me.
 
 Feel free to take and modify this to work for you
