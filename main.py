@@ -60,7 +60,11 @@ def display_date_time():
         temperature, humidity = get_temp_and_humidity()
 
         # Remove the degree symbol from temperature
-        temperature = str(temperature).split('.')[0] + '.' + str(temperature).split('.')[1][0]
+        temperature_str = str(temperature)
+        if '.' in temperature_str:
+            temperature = temperature_str.split('.')[0] + '.' + temperature_str.split('.')[1][0]
+        else:
+            temperature = temperature_str
 
         # Create a blank image
         image = Image.new("RGB", (options.cols, options.rows), color=(0, 0, 0))
