@@ -22,8 +22,7 @@ DALLAS_GREEN = (0, 97, 65)
 WHITE = (255, 255, 255)
 
 # Font settings
-FONT_PATH = "/home/pi/nhl-led-scoreboard/assets/fonts/04B_24__.TTF"
-#FONT_PATH2= "/home/pi/nhl-led-scoreboard/assets/fonts/score_large.otf"
+FONT_PATH = "04B_24__.TTF"
 DATE_FONT_SIZE = 8
 TIME_FONT_SIZE = 24
 TEMP_HUM_FONT_SIZE = 8
