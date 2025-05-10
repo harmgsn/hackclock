@@ -22,7 +22,8 @@ DALLAS_GREEN = (0, 97, 65)
 WHITE = (255, 255, 255)
 
 # Font settings
-FONT_PATH = "04B_24__.TTF"
+FONT_PATH = "/home/pi/nhl-led-scoreboard/assets/fonts/04B_24__.TTF"
+#FONT_PATH2= "/home/pi/nhl-led-scoreboard/assets/fonts/score_large.otf"
 DATE_FONT_SIZE = 8
 TIME_FONT_SIZE = 24
 TEMP_HUM_FONT_SIZE = 8
@@ -39,12 +40,12 @@ def rotate_image(image):
 def get_temp_and_humidity():
     global cached_temperature, cached_humidity
     url = f"https://swd.weatherflow.com/swd/rest/observations/device/" \
-          f"<DEVICEID>token=<APITOKEN>"
+          f"{YOUR_DEVICE_ID}?token={YOUR_TEMPEST_API_KEY}"
     response = requests.get(url)
     data = response.json()
 
     # Debug response to check structure
-#    print(data)
+    print(data)
 
     try:
         if "obs" in data and len(data["obs"]) > 0:
@@ -116,8 +117,11 @@ def display_date_time():
 
 def weather_thread():
     while True:
-        # Update the cached temperature and humidity every 10 minutes
-        get_temp_and_humidity()
+        try:
+            # Update the cached temperature and humidity every 10 minutes
+            get_temp_and_humidity()
+        except Exception as e:
+            print(f"Weather update failed: {e}")
         time.sleep(600)  # Update every 10 minutes
 
 cached_temperature, cached_humidity = "--", "--"
