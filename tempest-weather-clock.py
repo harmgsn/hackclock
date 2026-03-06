@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 YOUR_DEVICE_ID = "<CHANGE TO YOUR DEVICE ID>"
 YOUR_TEMPEST_API_KEY = "<CHANGE TO YOUR API KEY>"
 
-FONT_PATH = "fonts/04B_24__.TTF" #This font is required - this is the only one that will display correctly
+FONT_PATH = "04B_24__.TTF" #This font is required - this is the only one that will display correctly
 DATE_FONT_SIZE = 8
 TIME_FONT_SIZE = 24
 TEMP_HUM_FONT_SIZE = 8
