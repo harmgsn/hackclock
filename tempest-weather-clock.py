@@ -1,139 +1,105 @@
 import threading
 import time
 import requests
+import warnings
+import sys
 from datetime import datetime
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 from PIL import Image, ImageFont, ImageDraw
-import warnings
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Configuration for the RGB matrix
-options = RGBMatrixOptions()
-options.rows = 32
-options.cols = 64
-options.chain_length = 1
-options.parallel = 1
-options.hardware_mapping = 'adafruit-hat-pwm'  # Change to your specific hardware mapping
+# --- Configuration ---
+YOUR_DEVICE_ID = "<CHANGE TO YOUR DEVICE ID>"
+YOUR_TEMPEST_API_KEY = "<CHANGE TO YOUR API KEY>"
 
-matrix = RGBMatrix(options=options)
-
-# Colors
-DALLAS_GREEN = (0, 97, 65)
-WHITE = (255, 255, 255)
-
-# Font settings
-FONT_PATH = "/home/pi/nhl-led-scoreboard/assets/fonts/04B_24__.TTF"
-#FONT_PATH2= "/home/pi/nhl-led-scoreboard/assets/fonts/score_large.otf"
+FONT_PATH = "fonts/04B_24__.TTF" #This font is required - this is the only one that will display correctly
 DATE_FONT_SIZE = 8
 TIME_FONT_SIZE = 24
 TEMP_HUM_FONT_SIZE = 8
 
-# Brightness levels
-DIM_BRIGHTNESS = 40  # Adjust as needed
+# Dallas Stars Colors
+DALLAS_GREEN = (0, 97, 65) #This is in RGB format... it might need to be RBG dependin on your Matrix HAT
+WHITE = (255, 255, 255)
+DIM_BRIGHTNESS = 40
 FULL_BRIGHTNESS = 60
 
-# Function to rotate image
-def rotate_image(image):
-    return image.rotate(180)
+print("Initializing Matrix...")
+try:
+    options = RGBMatrixOptions()
+    options.rows = 32
+    options.cols = 64
+    options.chain_length = 1
+    options.parallel = 1
+    options.hardware_mapping = 'adafruit-hat-pwm'
+    options.drop_privileges = False  # DO NOT DROP ROOT
 
-# Function to get temperature and humidity from Weather Underground
-def get_temp_and_humidity():
-    global cached_temperature, cached_humidity
-    url = f"https://swd.weatherflow.com/swd/rest/observations/device/" \
-          f"{YOUR_DEVICE_ID}?token={YOUR_TEMPEST_API_KEY}"
-    response = requests.get(url)
-    data = response.json()
+    # Optional: If using a newer Pi, you might need this:
+    # options.gpio_slowdown = 2
 
-    # Debug response to check structure
-    print(data)
+    matrix = RGBMatrix(options=options)
+    print("Matrix initialized successfully.")
+except Exception as e:
+    print(f"CRITICAL ERROR: Matrix failed to initialize: {e}")
+    sys.exit(1)
 
+cached_temp, cached_hum = "--", "--"
+
+def get_weather():
+    global cached_temp, cached_hum
+    url = f"https://swd.weatherflow.com/swd/rest/observations/device/{YOUR_DEVICE_ID}?token={YOUR_TEMPEST_API_KEY}"
+    print(f"Updating weather from Tempest...")
     try:
+        r = requests.get(url, timeout=10)
+        data = r.json()
         if "obs" in data and len(data["obs"]) > 0:
-            observation = data["obs"][0]
-            temperature = (observation[7] * 9/5) + 32  # Correct index for temperature
-            humidity = observation[8]  # Correct index for humidity
-            cached_temperature = f"{temperature:.1f}"  # Store in cache
-            cached_humidity = humidity
-        else:
-            raise KeyError("Missing 'obs' data in API response")
-    except (KeyError, IndexError) as e:
-        print(f"Error parsing weather data: {e}")
-        cached_temperature, cached_humidity = "--", "--"
+            obs = data["obs"][0]
+            cached_temp = f"{(obs[7] * 9/5) + 32:.1f}"
+            cached_hum = obs[8]
+            print(f"Weather Updated: {cached_temp}F")
+    except Exception as e:
+        print(f"Weather API Error: {e}")
 
-    return cached_temperature, cached_humidity
-
-# Function to display the date, time, temperature, and humidity.
-def display_date_time():
-    global cached_temperature, cached_humidity
-    while True:
-        current_time = datetime.now()
-
-        # Adjust brightness based on time
-        matrix.brightness = DIM_BRIGHTNESS if 21 <= current_time.hour or current_time.hour < 9 else FULL_BRIGHTNESS
-
-        # Extracting date and time components
-        date_string = current_time.strftime("%b %d %Y")
-        time_string = current_time.strftime("%H:%M")
-
-        # Use cached values for temperature and humidity
-        temperature, humidity = cached_temperature, cached_humidity
-
-        # Create a blank image
-        image = Image.new("RGB", (options.cols, options.rows), color=(0, 0, 0))
-        draw = ImageDraw.Draw(image)
-
-        # Load fonts
+def display_loop():
+    print("Starting display loop...")
+    try:
         font_date = ImageFont.truetype(FONT_PATH, DATE_FONT_SIZE)
         font_time = ImageFont.truetype(FONT_PATH, TIME_FONT_SIZE)
-        font_temp_hum = ImageFont.truetype(FONT_PATH, TEMP_HUM_FONT_SIZE)
+        font_weather = ImageFont.truetype(FONT_PATH, TEMP_HUM_FONT_SIZE)
+    except:
+        print("Font not found, using default.")
+        font_date = font_time = font_weather = ImageFont.load_default()
 
-        # Calculate text positions for centering
-        date_width, date_height = draw.textsize(date_string, font=font_date)
-        date_position = ((options.cols - date_width) // 3, 1)
-
-        time_width, time_height = draw.textsize(time_string, font=font_time)
-        time_position = ((options.cols - time_width) // 2, 5)
-
-        temp_hum_text = f"{temperature}F  {humidity}%"
-        temp_hum_width, temp_hum_height = draw.textsize(temp_hum_text, font=font_temp_hum)
-        temp_hum_position = ((options.cols - temp_hum_width) // 2, 24)
-
-        # Display date in white
-        draw.text(date_position, date_string, fill=WHITE, font=font_date)
-
-        # Display time in Dallas Stars green
-        draw.text(time_position, time_string, fill=DALLAS_GREEN, font=font_time)
-
-        # Display temperature and humidity below time
-        draw.text(temp_hum_position, temp_hum_text, fill=WHITE, font=font_temp_hum)
-
-        # Rotate the image
-        rotated_image = rotate_image(image)
-
-        # Display the image on the RGB matrix
-        matrix.SetImage(rotated_image)
-
-        time.sleep(5)  # Update every 5 seconds
-
-def weather_thread():
     while True:
-        try:
-            # Update the cached temperature and humidity every 10 minutes
-            get_temp_and_humidity()
-        except Exception as e:
-            print(f"Weather update failed: {e}")
-        time.sleep(600)  # Update every 10 minutes
+        now = datetime.now()
+        matrix.brightness = DIM_BRIGHTNESS if (21 <= now.hour or now.hour < 9) else FULL_BRIGHTNESS
 
-cached_temperature, cached_humidity = "--", "--"
+        image = Image.new("RGB", (64, 32), color=(0, 0, 0))
+        draw = ImageDraw.Draw(image)
+
+        # Helper to center
+        def center(text, font):
+            bb = draw.textbbox((0, 0), text, font=font)
+            return (64 - (bb[2] - bb[0])) // 2
+
+        weather_txt = f"{cached_temp}F {cached_hum}%"
+
+        draw.text((center(now.strftime("%b %d %Y"), font_date), 0), now.strftime("%b %d %Y"), fill=WHITE, font=font_date)
+        draw.text((center(now.strftime("%H:%M"), font_time), 4), now.strftime("%H:%M"), fill=DALLAS_GREEN, font=font_time)
+        draw.text((center(weather_txt, font_weather), 24), weather_txt, fill=WHITE, font=font_weather)
+
+        matrix.SetImage(image.rotate(180))
+        time.sleep(5)
 
 if __name__ == "__main__":
-    try:
-        # Start the weather thread
-        weather_thread = threading.Thread(target=weather_thread)
-        weather_thread.daemon = True
-        weather_thread.start()
+    # Initial weather pull
+    get_weather()
 
-        # Start the main display thread
-        display_date_time()
+    # Background thread
+    t = threading.Thread(target=lambda: [time.sleep(600) or get_weather() for _ in iter(int, 1)], daemon=True)
+    t.start()
+
+    try:
+        display_loop()
     except KeyboardInterrupt:
-        pass
+        matrix.Clear()
